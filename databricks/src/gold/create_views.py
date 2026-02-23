@@ -21,6 +21,7 @@ environment = dbutils.widgets.get("environment")
 catalog_name = dbutils.widgets.get("catalog_name")
 
 catalog = f"{catalog_name}_{environment}"
+bronze_schema = "bronze"
 silver_schema = "silver"
 gold_schema = "gold"
 
@@ -114,6 +115,18 @@ print(f"Created view: {catalog}.{gold_schema}.vw_customer_lifetime_value")
 
 spark.sql(f"""
     CREATE OR REPLACE VIEW {catalog}.{gold_schema}.vw_product_sales AS
+    WITH order_items AS (
+        SELECT
+            o.order_id,
+            o.order_date,
+            oi.product_id,
+            oi.quantity,
+            oi.unit_price,
+            (oi.quantity * oi.unit_price) AS line_total
+        FROM {catalog}.{bronze_schema}.orders_raw o
+        LATERAL VIEW EXPLODE(o.items) AS oi
+        WHERE o._record_status = 'valid'
+    )
     SELECT
         p.product_id,
         p.name AS product_name,
@@ -121,14 +134,14 @@ spark.sql(f"""
         p.brand,
         p.price AS current_price,
         p.name_salt_key,
-        COUNT(DISTINCT o.order_id) AS times_ordered,
-        SUM(o.total_amount) AS total_revenue,
-        AVG(o.total_amount) AS avg_order_value,
-        MIN(o.order_date) AS first_sale_date,
-        MAX(o.order_date) AS last_sale_date
+        COALESCE(COUNT(DISTINCT oi.order_id), 0) AS times_ordered,
+        COALESCE(SUM(oi.line_total), 0) AS total_revenue,
+        AVG(oi.line_total) AS avg_line_value,
+        MIN(oi.order_date) AS first_sale_date,
+        MAX(oi.order_date) AS last_sale_date
     FROM {catalog}.{silver_schema}.dim_products p
-    LEFT JOIN {catalog}.{silver_schema}.fact_orders o
-        ON 1 = 1  -- Full join placeholder; in production, join via order items
+    LEFT JOIN order_items oi
+        ON p.product_id = oi.product_id
     GROUP BY
         p.product_id, p.name, p.category, p.brand,
         p.price, p.name_salt_key

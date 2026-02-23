@@ -17,8 +17,3 @@ variable "firehose_account_id" {
 variable "landing_bucket_arn" {
   type = string
 }
-
-variable "sns_topic_arns" {
-  description = "Map of topic name to ARN"
-  type        = map(string)
-}

@@ -72,7 +72,6 @@ module "iam" {
   sns_source_account_id = var.sns_source_account_id
   firehose_account_id   = var.firehose_account_id
   landing_bucket_arn    = module.s3.bucket_arn
-  sns_topic_arns        = module.sns.topic_arns
 }
 
 module "sns" {

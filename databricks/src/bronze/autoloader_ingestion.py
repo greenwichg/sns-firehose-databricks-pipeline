@@ -51,11 +51,7 @@ print(f"Invalid tbl: {invalid_table}")
 
 # COMMAND ----------
 
-import sys
-import os
-
 from pyspark.sql import functions as F
-from pyspark.sql.types import StringType
 
 # Import schemas and validation utilities
 from databricks.src.schemas import SCHEMA_REGISTRY
@@ -74,21 +70,8 @@ required_fields = topic_config["required_fields"]
 
 spark.sql(f"CREATE SCHEMA IF NOT EXISTS {catalog}.{bronze_schema}")
 
-spark.sql(f"""
-    CREATE TABLE IF NOT EXISTS {raw_table} (
-        _placeholder STRING
-    )
-    USING DELTA
-    COMMENT 'Bronze raw valid records for {topic_name}'
-""")
-
-spark.sql(f"""
-    CREATE TABLE IF NOT EXISTS {invalid_table} (
-        _placeholder STRING
-    )
-    USING DELTA
-    COMMENT 'Bronze invalid records for {topic_name}'
-""")
+# Tables are created on first write with mergeSchema enabled.
+# No placeholder tables needed — Autoloader foreachBatch handles creation.
 
 # COMMAND ----------
 
@@ -155,6 +138,8 @@ autoloader_stream = (
     .option("cloudFiles.inferColumnTypes", "true")
     .option("cloudFiles.schemaEvolutionMode", "addNewColumns")
     .option("cloudFiles.maxFilesPerTrigger", 1000)
+    # Firehose delivers GZIP-compressed files
+    .option("compression", "gzip")
     # Use notification mode for efficient S3 file discovery
     .option("cloudFiles.useNotifications", "true")
     .schema(raw_schema)
