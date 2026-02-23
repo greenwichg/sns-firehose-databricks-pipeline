@@ -1,0 +1,136 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        default: dev
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+concurrency:
+  group: deploy-${{ github.event.inputs.environment || 'dev' }}
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: "3.11"
+  TERRAFORM_VERSION: "1.5.7"
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Determine Environment
+  # ---------------------------------------------------------------------------
+  resolve-env:
+    name: Resolve Environment
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.env.outputs.environment }}
+    steps:
+      - id: env
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "environment=${{ github.event.inputs.environment }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "environment=dev" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ---------------------------------------------------------------------------
+  # Terraform Apply
+  # ---------------------------------------------------------------------------
+  infra:
+    name: Terraform (${{ needs.resolve-env.outputs.environment }})
+    needs: resolve-env
+    runs-on: ubuntu-latest
+    environment: ${{ needs.resolve-env.outputs.environment }}
+    env:
+      ENV: ${{ needs.resolve-env.outputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Terraform init
+        run: |
+          terraform -chdir=terraform init \
+            -backend-config=environments/${{ env.ENV }}/backend.hcl
+
+      - name: Terraform plan
+        run: |
+          terraform -chdir=terraform plan \
+            -var-file=environments/${{ env.ENV }}/terraform.tfvars \
+            -out=tfplan
+
+      - name: Terraform apply
+        run: terraform -chdir=terraform apply tfplan
+
+  # ---------------------------------------------------------------------------
+  # Databricks Bundle Deploy
+  # ---------------------------------------------------------------------------
+  bundle-deploy:
+    name: Bundle Deploy (${{ needs.resolve-env.outputs.environment }})
+    needs: [resolve-env, infra]
+    runs-on: ubuntu-latest
+    environment: ${{ needs.resolve-env.outputs.environment }}
+    env:
+      ENV: ${{ needs.resolve-env.outputs.environment }}
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: databricks/setup-cli@main
+
+      - name: Deploy bundle
+        working-directory: databricks
+        run: databricks bundle deploy -t ${{ env.ENV }}
+
+  # ---------------------------------------------------------------------------
+  # Run Pipeline (dev/staging only — prod runs on schedule)
+  # ---------------------------------------------------------------------------
+  run-pipeline:
+    name: Run Pipeline (${{ needs.resolve-env.outputs.environment }})
+    needs: [resolve-env, bundle-deploy]
+    if: needs.resolve-env.outputs.environment != 'prod'
+    runs-on: ubuntu-latest
+    environment: ${{ needs.resolve-env.outputs.environment }}
+    env:
+      ENV: ${{ needs.resolve-env.outputs.environment }}
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: databricks/setup-cli@main
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Generate and upload test data
+        run: |
+          python scripts/generate_test_data.py \
+            --mode local \
+            --output-dir ./test_data \
+            --records 100 \
+            --seed 42
+
+      - name: Trigger full pipeline
+        working-directory: databricks
+        run: databricks bundle run full_pipeline -t ${{ env.ENV }}
