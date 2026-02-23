@@ -3,15 +3,15 @@
 ## Architecture
 
 ```
-┌─────────────────┐    ┌──────────────────┐    ┌───────────┐    ┌──────────────────────────┐
-│  SNS Topics     │───▶│ Kinesis Firehose  │───▶│  S3       │───▶│  Databricks              │
-│  (Account A)    │    │ (Account B)       │    │ Landing   │    │  Bronze → Silver → Gold  │
-│                 │    │                   │    │           │    │                          │
-│ • orders        │    │ • orders stream   │    │ /orders/  │    │ Autoloader ──▶ Delta     │
-│ • customers     │    │ • customers stream│    │ /customers│    │ Valid/Invalid split      │
-│ • products      │    │ • products stream │    │ /products │    │ Facts + Dimensions       │
-└─────────────────┘    └──────────────────┘    └───────────┘    │ Views + RBAC             │
-                                                                └──────────────────────────┘
+┌─────────────────┐     ┌───────────────────┐    ┌───────────┐     ┌──────────────────────────┐
+│  SNS Topics     │───▶│  Kinesis Firehose │───▶│  S3       │───▶│  Databricks              │
+│  (Account A)    │     │ (Account B)       │    │ Landing   │     │  Bronze → Silver → Gold  │
+│                 │     │                   │    │           │     │                          │
+│ • orders        │     │ • orders stream   │    │ /orders/  │     │ Autoloader ──▶ Delta    │
+│ • customers     │     │ • customers stream│    │ /customers│     │ Valid/Invalid split      │
+│ • products      │     │ • products stream │    │ /products │     │ Facts + Dimensions       │
+└─────────────────┘     └───────────────────┘    └───────────┘     │ Views + RBAC             │
+                                                                   └──────────────────────────┘
 ```
 
 ## Project Structure
