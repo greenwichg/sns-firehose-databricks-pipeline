@@ -4,7 +4,7 @@
 
 ```
 ┌─────────────────┐     ┌───────────────────┐    ┌───────────┐     ┌──────────────────────────┐
-│  SNS Topics     │───▶ │  Kinesis Firehose │───▶│  S3       │───▶ │  Databricks              │
+│  SNS Topics     │───▶ │ Kinesis Firehose  │───▶│ S3        │───▶ │  Databricks              │
 │  (Account A)    │     │ (Account B)       │    │ Landing   │     │  Bronze → Silver → Gold  │
 │                 │     │                   │    │           │     │                          │
 │ • orders        │     │ • orders stream   │    │ /orders/  │     │ Autoloader ──▶ Delta     │
