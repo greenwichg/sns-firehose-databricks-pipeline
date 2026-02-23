@@ -1,0 +1,51 @@
+resources:
+  jobs:
+    # -----------------------------------------------
+    # Silver Layer — Fact & Dimension Processing
+    # -----------------------------------------------
+    silver_pipeline:
+      name: "[${var.environment}] Silver - Facts & Dimensions Pipeline"
+      description: "Process bronze data into silver fact and dimension tables"
+      schedule:
+        quartz_cron_expression: "0 30 * * * ?"  # Every hour at :30
+        timezone_id: "UTC"
+      tags:
+        layer: "silver"
+        environment: ${var.environment}
+      job_clusters:
+        - job_cluster_key: "silver_cluster"
+          new_cluster:
+            spark_version: "14.3.x-scala2.12"
+            node_type_id: "i3.xlarge"
+            num_workers: 3
+            spark_conf:
+              "spark.databricks.delta.schema.autoMerge.enabled": "true"
+              "spark.databricks.delta.optimizeWrite.enabled": "true"
+      tasks:
+        - task_key: "fact_orders"
+          job_cluster_key: "silver_cluster"
+          notebook_task:
+            notebook_path: "../src/silver/fact_orders.py"
+            base_parameters:
+              environment: ${var.environment}
+              catalog_name: ${var.catalog_name}
+
+        - task_key: "dim_customers"
+          job_cluster_key: "silver_cluster"
+          notebook_task:
+            notebook_path: "../src/silver/dim_customers.py"
+            base_parameters:
+              environment: ${var.environment}
+              catalog_name: ${var.catalog_name}
+              salt_secret_scope: ${var.salt_secret_scope}
+              salt_secret_key: ${var.salt_secret_key}
+
+        - task_key: "dim_products"
+          job_cluster_key: "silver_cluster"
+          notebook_task:
+            notebook_path: "../src/silver/dim_products.py"
+            base_parameters:
+              environment: ${var.environment}
+              catalog_name: ${var.catalog_name}
+              salt_secret_scope: ${var.salt_secret_scope}
+              salt_secret_key: ${var.salt_secret_key}

@@ -1,0 +1,59 @@
+bundle:
+  name: sns-firehose-pipeline
+
+workspace:
+  host: ${var.databricks_workspace_url}
+
+variables:
+  databricks_workspace_url:
+    description: "Databricks workspace URL"
+  environment:
+    description: "Deployment environment"
+    default: "dev"
+  catalog_name:
+    description: "Unity Catalog name"
+    default: "pipeline_catalog"
+  landing_bucket:
+    description: "S3 landing bucket name"
+  salt_secret_scope:
+    description: "Databricks secret scope for salt keys"
+    default: "pipeline-secrets"
+  salt_secret_key:
+    description: "Secret key for PII salt"
+    default: "pii-salt-key"
+
+include:
+  - "resources/*.yml"
+
+targets:
+  dev:
+    mode: development
+    default: true
+    variables:
+      environment: "dev"
+      landing_bucket: "sns-firehose-pipeline-dev-landing"
+      catalog_name: "pipeline_catalog"
+    workspace:
+      root_path: /Users/${workspace.current_user.userName}/.bundle/${bundle.name}/dev
+
+  staging:
+    variables:
+      environment: "staging"
+      landing_bucket: "sns-firehose-pipeline-staging-landing"
+      catalog_name: "pipeline_catalog"
+    workspace:
+      root_path: /Shared/.bundle/${bundle.name}/staging
+
+  prod:
+    mode: production
+    variables:
+      environment: "prod"
+      landing_bucket: "sns-firehose-pipeline-prod-landing"
+      catalog_name: "pipeline_catalog"
+    workspace:
+      root_path: /Shared/.bundle/${bundle.name}/prod
+    permissions:
+      - group_name: "engineers"
+        level: CAN_MANAGE
+      - group_name: "analysts"
+        level: CAN_VIEW

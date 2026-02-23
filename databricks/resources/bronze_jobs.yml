@@ -1,0 +1,97 @@
+resources:
+  jobs:
+    # -----------------------------------------------
+    # Bronze Layer — Autoloader Ingestion Jobs
+    # -----------------------------------------------
+    bronze_orders_ingestion:
+      name: "[${var.environment}] Bronze - Orders Ingestion"
+      description: "Ingest orders from S3 into bronze Delta tables using Autoloader"
+      schedule:
+        quartz_cron_expression: "0 0/15 * * * ?"  # Every 15 minutes
+        timezone_id: "UTC"
+      tags:
+        layer: "bronze"
+        domain: "orders"
+        environment: ${var.environment}
+      job_clusters:
+        - job_cluster_key: "bronze_cluster"
+          new_cluster:
+            spark_version: "14.3.x-scala2.12"
+            node_type_id: "i3.xlarge"
+            num_workers: 2
+            aws_attributes:
+              instance_profile_arn: "arn:aws:iam::222222222222:instance-profile/databricks-s3-access"
+            spark_conf:
+              "spark.databricks.delta.schema.autoMerge.enabled": "true"
+      tasks:
+        - task_key: "ingest_orders"
+          job_cluster_key: "bronze_cluster"
+          notebook_task:
+            notebook_path: "../src/bronze/autoloader_ingestion.py"
+            base_parameters:
+              topic_name: "orders"
+              environment: ${var.environment}
+              landing_bucket: ${var.landing_bucket}
+              catalog_name: ${var.catalog_name}
+
+    bronze_customers_ingestion:
+      name: "[${var.environment}] Bronze - Customers Ingestion"
+      description: "Ingest customers from S3 into bronze Delta tables using Autoloader"
+      schedule:
+        quartz_cron_expression: "0 0/15 * * * ?"
+        timezone_id: "UTC"
+      tags:
+        layer: "bronze"
+        domain: "customers"
+        environment: ${var.environment}
+      job_clusters:
+        - job_cluster_key: "bronze_cluster"
+          new_cluster:
+            spark_version: "14.3.x-scala2.12"
+            node_type_id: "i3.xlarge"
+            num_workers: 2
+            aws_attributes:
+              instance_profile_arn: "arn:aws:iam::222222222222:instance-profile/databricks-s3-access"
+            spark_conf:
+              "spark.databricks.delta.schema.autoMerge.enabled": "true"
+      tasks:
+        - task_key: "ingest_customers"
+          job_cluster_key: "bronze_cluster"
+          notebook_task:
+            notebook_path: "../src/bronze/autoloader_ingestion.py"
+            base_parameters:
+              topic_name: "customers"
+              environment: ${var.environment}
+              landing_bucket: ${var.landing_bucket}
+              catalog_name: ${var.catalog_name}
+
+    bronze_products_ingestion:
+      name: "[${var.environment}] Bronze - Products Ingestion"
+      description: "Ingest products from S3 into bronze Delta tables using Autoloader"
+      schedule:
+        quartz_cron_expression: "0 0/15 * * * ?"
+        timezone_id: "UTC"
+      tags:
+        layer: "bronze"
+        domain: "products"
+        environment: ${var.environment}
+      job_clusters:
+        - job_cluster_key: "bronze_cluster"
+          new_cluster:
+            spark_version: "14.3.x-scala2.12"
+            node_type_id: "i3.xlarge"
+            num_workers: 2
+            aws_attributes:
+              instance_profile_arn: "arn:aws:iam::222222222222:instance-profile/databricks-s3-access"
+            spark_conf:
+              "spark.databricks.delta.schema.autoMerge.enabled": "true"
+      tasks:
+        - task_key: "ingest_products"
+          job_cluster_key: "bronze_cluster"
+          notebook_task:
+            notebook_path: "../src/bronze/autoloader_ingestion.py"
+            base_parameters:
+              topic_name: "products"
+              environment: ${var.environment}
+              landing_bucket: ${var.landing_bucket}
+              catalog_name: ${var.catalog_name}

@@ -1,0 +1,180 @@
+##############################################
+# Pipeline Configuration
+##############################################
+
+# S3 landing zone
+landing_zone:
+  bucket: "${landing_bucket_name}"
+  base_path: "s3://${landing_bucket_name}"
+  checkpoint_base: "s3://${landing_bucket_name}/_checkpoints"
+
+# Unity Catalog references
+catalog: "${catalog_name}_${environment}"
+schemas:
+  bronze: "bronze"
+  silver: "silver"
+  gold: "gold"
+
+# Data domains / topics
+topics:
+  orders:
+    s3_prefix: "orders"
+    primary_key: "order_id"
+    timestamp_column: "order_date"
+    partition_columns:
+      - "order_date"
+
+  customers:
+    s3_prefix: "customers"
+    primary_key: "customer_id"
+    timestamp_column: "updated_at"
+    partition_columns:
+      - "updated_at"
+
+  products:
+    s3_prefix: "products"
+    primary_key: "product_id"
+    timestamp_column: "updated_at"
+    partition_columns:
+      - "updated_at"
+
+# Autoloader settings
+autoloader:
+  schema_evolution_mode: "addNewColumns"
+  max_files_per_trigger: 1000
+  file_format: "json"
+  infer_schema: true
+
+# Validation rules applied at Bronze layer
+validation:
+  orders:
+    required_fields:
+      - "order_id"
+      - "customer_id"
+      - "order_date"
+      - "total_amount"
+    field_types:
+      order_id: "string"
+      customer_id: "string"
+      order_date: "timestamp"
+      total_amount: "double"
+      items: "array"
+
+  customers:
+    required_fields:
+      - "customer_id"
+      - "email"
+      - "name"
+    field_types:
+      customer_id: "string"
+      email: "string"
+      name: "string"
+      address: "string"
+      phone: "string"
+
+  products:
+    required_fields:
+      - "product_id"
+      - "name"
+      - "price"
+    field_types:
+      product_id: "string"
+      name: "string"
+      price: "double"
+      category: "string"
+      description: "string"
+
+# Silver layer configuration
+silver:
+  facts:
+    fact_orders:
+      source_topic: "orders"
+      columns:
+        - "order_id"
+        - "customer_id"
+        - "order_date"
+        - "total_amount"
+        - "status"
+        - "payment_method"
+        - "shipping_address_id"
+      partition_columns:
+        - "order_date"
+
+  dimensions:
+    dim_customers:
+      source_topic: "customers"
+      columns:
+        - "customer_id"
+        - "name"
+        - "email"
+        - "phone"
+        - "address"
+        - "city"
+        - "state"
+        - "country"
+        - "created_at"
+      salt_key_columns:
+        - "email"
+        - "phone"
+        - "name"
+
+    dim_products:
+      source_topic: "products"
+      columns:
+        - "product_id"
+        - "name"
+        - "category"
+        - "price"
+        - "description"
+        - "brand"
+        - "created_at"
+      salt_key_columns:
+        - "name"
+
+# Gold layer views
+gold:
+  views:
+    vw_order_summary:
+      description: "Order summary with customer and product details"
+      source_tables:
+        - "silver.fact_orders"
+        - "silver.dim_customers"
+        - "silver.dim_products"
+
+    vw_customer_lifetime_value:
+      description: "Customer lifetime value aggregation"
+      source_tables:
+        - "silver.fact_orders"
+        - "silver.dim_customers"
+
+    vw_product_sales:
+      description: "Product sales performance"
+      source_tables:
+        - "silver.fact_orders"
+        - "silver.dim_products"
+
+  # Role-based access via Unity Catalog
+  roles:
+    analysts:
+      views:
+        - "vw_order_summary"
+        - "vw_customer_lifetime_value"
+        - "vw_product_sales"
+      privileges:
+        - "SELECT"
+
+    engineers:
+      views:
+        - "vw_order_summary"
+        - "vw_customer_lifetime_value"
+        - "vw_product_sales"
+      privileges:
+        - "SELECT"
+        - "MODIFY"
+
+    data_scientists:
+      views:
+        - "vw_customer_lifetime_value"
+        - "vw_product_sales"
+      privileges:
+        - "SELECT"
