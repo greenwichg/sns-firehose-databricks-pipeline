@@ -18,6 +18,7 @@ credentials.json
 
 .bundle/
 *.whl
+test_data/
 
 .vscode/
 .idea/
