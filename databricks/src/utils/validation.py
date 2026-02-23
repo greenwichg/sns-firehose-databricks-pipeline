@@ -29,20 +29,12 @@ def validate_required_fields(df: DataFrame, required_fields: list[str]) -> DataF
         else:
             error_conditions.append(F.lit(f"missing_{field}"))
 
-    # Concatenate all errors into a single string
+    # Build an array of error messages, filter out nulls (valid fields),
+    # then concatenate remaining errors into a comma-separated string.
     if error_conditions:
-        validation_errors = F.concat_ws(
-            ",",
-            F.array([expr for expr in error_conditions]),
-        )
-        # Remove nulls from the error array
-        validation_errors = F.concat_ws(
-            ",",
-            F.filter(
-                F.split(validation_errors, ","),
-                lambda x: x != "",
-            ),
-        )
+        error_array = F.array(*error_conditions)
+        non_null_errors = F.filter(error_array, lambda x: x.isNotNull())
+        validation_errors = F.concat_ws(",", non_null_errors)
     else:
         validation_errors = F.lit(None).cast("string")
 
