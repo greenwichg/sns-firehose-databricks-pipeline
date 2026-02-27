@@ -1,7 +1,5 @@
 # Interview Questions — SNS -> Firehose -> S3 -> Databricks Medallion Pipeline
 
----
-
 ## 1. Architecture & End-to-End Data Flow
 
 **Q1.1: Walk me through the end-to-end data flow of this pipeline. What happens from the moment a message is published to SNS until it appears in a Gold layer view?**
