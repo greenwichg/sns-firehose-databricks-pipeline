@@ -1,4 +1,4 @@
-# Interview Questions — SNS -> Firehose -> S3 -> Databricks Medallion Pipeline
+## Interview Questions — SNS -> Firehose -> S3 -> Databricks Medallion Pipeline
 
 ---
 
