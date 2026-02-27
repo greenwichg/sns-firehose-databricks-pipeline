@@ -1,7 +1,5 @@
 # Interview Questions — SNS -> Firehose -> S3 -> Databricks Medallion Pipeline
 
-Prepared for interview with Harman. Questions organized by topic area, from architecture-level to deep production concerns.
-
 ---
 
 ## 1. Architecture & End-to-End Data Flow
